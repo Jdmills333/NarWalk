@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">NarWalk</string>
+    <string name="title_activity_navigation">Navigation</string>
+    <string name="title_activity_detection">Detection</string>
+    <string name="title_activity_detection_and_navigation">DetectionAndNavigation</string>
+    <string name="access_token" translatable="false">pk.eyJ1IjoiamRtaWxsczMzMyIsImEiOiJjanRybW52NXYwZHZqM3lwbHNndG42ZTgxIn0.Xm-LecYCSEXVWxkQ4UWv5A</string>
+    <string name="user_location_permission_explanation">This app needs location permissions to show its functionality.</string>
+    <string name="user_location_permission_not_granted">You didn\'t grant location permissions.</string>
+</resources>
