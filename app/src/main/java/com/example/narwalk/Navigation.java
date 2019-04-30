@@ -76,6 +76,17 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
+import android.os.Handler;
+import android.os.HandlerThread;
+import android.app.Activity;
+import android.hardware.Sensor;
+import android.hardware.SensorEvent;
+import android.hardware.SensorEventListener;
+import android.hardware.SensorManager;
+import android.os.Bundle;
+import android.os.SystemClock;
+import android.util.Log;
+
 
 public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClickListener, OnMapReadyCallback, PermissionsListener,
         ProgressChangeListener, MilestoneEventListener,  OnNavigationReadyCallback, SpeechAnnouncementListener, BannerInstructionsListener {
