@@ -55,9 +55,11 @@ import com.mapbox.mapboxsdk.maps.Style;
 import com.mapbox.services.android.navigation.ui.v5.OnNavigationReadyCallback;
 import com.mapbox.services.android.navigation.ui.v5.route.NavigationMapRoute;
 import com.mapbox.services.android.navigation.v5.milestone.TriggerProperty;
+import com.mapbox.services.android.navigation.v5.navigation.MapboxNavigationOptions;
 import com.mapbox.services.android.navigation.v5.navigation.NavigationRoute;
 import com.mapbox.api.directions.v5.models.DirectionsResponse;
 import com.mapbox.api.directions.v5.models.DirectionsRoute;
+import com.mapbox.services.android.navigation.v5.offroute.OffRouteListener;
 import com.mapbox.services.android.navigation.v5.routeprogress.ProgressChangeListener;
 import com.mapbox.services.android.navigation.v5.routeprogress.RouteProgress;
 import com.mapbox.services.android.navigation.ui.v5.NavigationView;
@@ -108,7 +110,6 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
     private Button button;
     private FloatingActionButton fab;
     private NavigationView navigationView;
-
     // initialization variables
     private boolean isNavigating = false;
     private Point origin = Point.fromLngLat(-77.03194990754128, 38.909664963450105);
@@ -122,7 +123,6 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-
         // Add Mapbox key and params
         Mapbox.getInstance(this, getString(R.string.access_token));
         setContentView(R.layout.activity_navigation);
@@ -136,6 +136,7 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                 .zoom(INITIAL_ZOOM)
                 .build();
         navigationView.onCreate(savedInstanceState);
+
         navigationView.initialize(this, initialPosition);
         mapView.getMapAsync(this);
 
@@ -171,7 +172,7 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                     public void onClick(View v) {
 
                         if (!isNavigating) {
-                            boolean simulateRoute = false;
+
                             List<Milestone> milestones = new ArrayList<>();
                             milestones.add(new StepMilestone.Builder()
                                     .setIdentifier(50)
@@ -183,6 +184,7 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                                     .build());
 
                             // Add options for navigation
+                            boolean simulateRoute = false;
                             NavigationViewOptions navOptions = NavigationViewOptions.builder()
                                     .speechAnnouncementListener(Navigation.this::willVoice)
                                     .progressChangeListener(Navigation.this::onProgressChange)
