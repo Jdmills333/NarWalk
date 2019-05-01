@@ -204,12 +204,12 @@ public class Detection extends AppCompatActivity {
                         // read the data into the buffer
                         read = recorder.read(buffer1, 0, buffer1.length, AudioRecord.READ_BLOCKING);
                         Log.w(TAG, "Total Numebr of Bytes read = " + read + " Buffer length " + buffer.length);
-                        for (int i = 0; i < buffer1.length; i++) {
-                            all_data.add(buffer1[i]);
-//                            Log.d(TAG, "In the adding thing");
-//                            buffer1[i] = (byte) buffer[i];
-//                            bytebuf.putShort(buffer[i]);
-                        }
+//                        for (int i = 0; i < buffer1.length; i++) {
+//                            all_data.add(buffer1[i]);
+////                            Log.d(TAG, "In the adding thing");
+////                            buffer1[i] = (byte) buffer[i];
+////                            bytebuf.putShort(buffer[i]);
+//                        }
                     }
                     // place    contents of buffer into the packet
 //                        packet = new DatagramPacket(buffer1, buffer1.length, serverAddress, PORT);
