@@ -1,4 +1,5 @@
 package com.example.narwalk;
+
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.graphics.BitmapFactory;
@@ -12,8 +13,6 @@ import android.speech.RecognizerIntent;
 import android.widget.Toast;
 import com.mapbox.android.core.permissions.PermissionsListener;
 import com.mapbox.android.core.permissions.PermissionsManager;
-
-
 import com.mapbox.api.directions.v5.DirectionsCriteria;
 import com.mapbox.api.directions.v5.models.BannerInstructions;
 import com.mapbox.api.directions.v5.models.StepIntersection;
@@ -23,20 +22,17 @@ import com.mapbox.api.geocoding.v5.models.CarmenFeature;
 import com.mapbox.api.geocoding.v5.models.GeocodingResponse;
 import com.mapbox.core.exceptions.ServicesException;
 import com.mapbox.services.android.navigation.ui.v5.listeners.BannerInstructionsListener;
+import com.mapbox.services.android.navigation.ui.v5.listeners.NavigationListener;
 import com.mapbox.services.android.navigation.ui.v5.listeners.SpeechAnnouncementListener;
 import com.mapbox.services.android.navigation.ui.v5.voice.SpeechAnnouncement;
 import com.mapbox.services.android.navigation.v5.milestone.Milestone;
 import com.mapbox.services.android.navigation.v5.milestone.MilestoneEventListener;
 import com.mapbox.services.android.navigation.v5.milestone.StepMilestone;
 import com.mapbox.services.android.navigation.v5.milestone.Trigger;
-import com.mapbox.services.android.navigation.v5.navigation.MapboxNavigation;
 import com.mapbox.mapboxsdk.Mapbox;
-
 import com.mapbox.mapboxsdk.camera.CameraPosition;
 import com.mapbox.mapboxsdk.location.LocationComponent;
 import com.mapbox.mapboxsdk.location.modes.CameraMode;
-
-// classes needed to add a marker
 import com.mapbox.geojson.Feature;
 import com.mapbox.geojson.Point;
 import com.mapbox.mapboxsdk.geometry.LatLng;
@@ -45,21 +41,16 @@ import com.mapbox.mapboxsdk.style.sources.GeoJsonSource;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconAllowOverlap;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconIgnorePlacement;
 import static com.mapbox.mapboxsdk.style.layers.PropertyFactory.iconImage;
-
 import com.mapbox.mapboxsdk.maps.MapView;
 import com.mapbox.mapboxsdk.maps.MapboxMap;
 import com.mapbox.mapboxsdk.maps.OnMapReadyCallback;
 import com.mapbox.mapboxsdk.maps.Style;
-
-// classes to calculate a route
 import com.mapbox.services.android.navigation.ui.v5.OnNavigationReadyCallback;
 import com.mapbox.services.android.navigation.ui.v5.route.NavigationMapRoute;
 import com.mapbox.services.android.navigation.v5.milestone.TriggerProperty;
-import com.mapbox.services.android.navigation.v5.navigation.MapboxNavigationOptions;
 import com.mapbox.services.android.navigation.v5.navigation.NavigationRoute;
 import com.mapbox.api.directions.v5.models.DirectionsResponse;
 import com.mapbox.api.directions.v5.models.DirectionsRoute;
-import com.mapbox.services.android.navigation.v5.offroute.OffRouteListener;
 import com.mapbox.services.android.navigation.v5.routeprogress.ProgressChangeListener;
 import com.mapbox.services.android.navigation.v5.routeprogress.RouteProgress;
 import com.mapbox.services.android.navigation.ui.v5.NavigationView;
@@ -68,32 +59,22 @@ import retrofit2.Call;
 import retrofit2.Callback;
 import retrofit2.Response;
 import android.util.Log;
-
-// classes needed to launch navigation UI
 import android.view.View;
 import android.widget.Button;
-
-
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-
 import android.os.Handler;
 import android.os.HandlerThread;
-import android.os.Looper;
-import android.app.Activity;
 import android.hardware.Sensor;
 import android.hardware.SensorEvent;
 import android.hardware.SensorEventListener;
 import android.hardware.SensorManager;
-import android.os.Bundle;
 import android.os.SystemClock;
-import java.util.ArrayList;
-
 
 public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClickListener, OnMapReadyCallback, PermissionsListener,
         ProgressChangeListener, MilestoneEventListener,  OnNavigationReadyCallback, SpeechAnnouncementListener, BannerInstructionsListener,
-        SensorEventListener {
+        SensorEventListener, NavigationListener {
 
     // variables to initialize map
     private MapView mapView;
@@ -112,40 +93,37 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
     private Button button;
     private FloatingActionButton fab;
     private NavigationView navigationView;
+
     // initialization variables
     private boolean isNavigating = false;
     private Point origin = Point.fromLngLat(-77.03194990754128, 38.909664963450105);
     private static final int INITIAL_ZOOM = 16;
     protected static final int RESULT_SPEECH = 1;
-
     private TextToSpeech tts;
     private String routeAttempt;
-    private String routeReal;
+    private Point destinationPoint;
 
-    //step length stuff
+    //step length variables
     private float[] coef;
+    private int stepCount = -1;
     private float average_step_length;
     private float height;
     private float last_step_time;
     ArrayList<Float> accels;
     ArrayList<Float> steps;
-
     HandlerThread sensorThread;
     Handler sensorHandler;
-
     private SensorManager sensorManager;
+    private float progLen = 0f;
 
-    private int stepCount = 0;
-
-    private String[] tensStrings;
-    private String[] teenStrings;
-    private String[] onesStrings;
-    //end step length stuff
+    // boolean to simulate the navigation
+    private boolean simulateRoute = true;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // Add Mapbox key and params
+
+        // Add Mapbox auth key and params for map initialization
         Mapbox.getInstance(this, getString(R.string.access_token));
         setContentView(R.layout.activity_navigation);
         navigationView = findViewById(R.id.navigationView);
@@ -158,10 +136,10 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                 .zoom(INITIAL_ZOOM)
                 .build();
         navigationView.onCreate(savedInstanceState);
-
         navigationView.initialize(this, initialPosition);
         mapView.getMapAsync(this);
 
+        // set up text-to-speech with params
         tts = new TextToSpeech(getApplicationContext(), new TextToSpeech.OnInitListener() {
             @Override
             public void onInit(int status) {
@@ -170,23 +148,20 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                 }
             }
         });
+        tts.setPitch(.8f);
+        tts.setSpeechRate(.9f);
 
-                //initialize step length stuff
+        // initialize step length coefficients
         coef = new float[4];
         coef[0] = 0.087135f;
-        coef[1] = 078120f;
+        coef[1] = .078120f;
         coef[2] = 0.411146f;
         coef[3] = -0.339232f;
-        average_step_length = 0.0f;
+        average_step_length = .6f;
         height = 1.75f;
         last_step_time = SystemClock.elapsedRealtime();
         accels = new ArrayList<Float>();
         steps = new ArrayList<Float>();
-
-        tensStrings = new String[]{null, null, "twenty", "thirty", "fifty", "sixty", "seventy", "eighty", "ninety"};
-        teenStrings = new String[]{"ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen", "seventeen",
-                "eighteen", "nineteen"};
-        onesStrings = new String[]{null, "one", "two", "three", "four", "five", "six", "seven", "eight", "nine"};
 
         sensorThread = new HandlerThread("sensorThread");
         sensorThread.start();
@@ -199,45 +174,44 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
         sensorManager.registerListener(this,
                 sensorManager.getDefaultSensor(Sensor.TYPE_ACCELEROMETER),
                 SensorManager.SENSOR_DELAY_FASTEST, sensorHandler);
-        //end step length stuff
 
     }
 
+    // If a sensor has been changed, pass in the event that has done so
     public void onSensorChanged(SensorEvent event) {
-        //step length sensors
+        //step length sensors, update steps if in Navigation mode
         if (event.sensor.getType() == Sensor.TYPE_STEP_DETECTOR) {
-            getStepLength();
-            stepCount++;
+            if (stepCount >= 0 && isNavigating) {
+                getStepLength();
+            }
             accels.clear();
+            stepCount++;
         } else if (event.sensor.getType() == Sensor.TYPE_ACCELEROMETER) {
             final float X = event.values[0]; //assume for now that this is vertical
             accels.add(X);
         }
-        //end step length sensors
     }
 
+    // When the map has initialized and loaded with correct auth key, return the map object
     @Override
     public void onMapReady(@NonNull final MapboxMap mapboxMap) {
         this.mapboxMap = mapboxMap;
         mapboxMap.setStyle(Style.MAPBOX_STREETS, new Style.OnStyleLoaded() {
             @Override
             public void onStyleLoaded(@NonNull Style style) {
-                // Ask for location privileges
+
+                // Ask for location privileges and add style
                 enableLocationComponent(style);
-
                 addDestinationIconSymbolLayer(style);
-
                 mapboxMap.addOnMapClickListener(Navigation.this);
 
-
-                // Begin navigation button, not currently needed for speech
+                // Begin navigation button onClick
                 button = findViewById(R.id.startButton);
                 button.setOnClickListener(new View.OnClickListener() {
                     @Override
                     public void onClick(View v) {
-
                         if (!isNavigating) {
-
+                            // Additional Milestone with trigger to add to defaults
                             List<Milestone> milestones = new ArrayList<>();
                             milestones.add(new StepMilestone.Builder()
                                     .setIdentifier(50)
@@ -248,31 +222,35 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                                     )
                                     .build());
 
-                            // Add options for navigation
-                            boolean simulateRoute = false;
+                            // Add options for navigation with change listeners
+                            boolean simulateRoute = true;
                             NavigationViewOptions navOptions = NavigationViewOptions.builder()
                                     .speechAnnouncementListener(Navigation.this::willVoice)
                                     .progressChangeListener(Navigation.this::onProgressChange)
                                     .milestoneEventListener(Navigation.this::onMilestoneEvent)
                                     .bannerInstructionsListener(Navigation.this::willDisplay)
+                                    .navigationListener(Navigation.this)
                                     .milestones(milestones)
                                     .directionsRoute(currentRoute)
                                     .shouldSimulateRoute(simulateRoute)
                                     .build();
-                            // Call this method with Context from within an Activity
+
+                            // Call this method with Context from within an Activity and relay success
                             navigationView.startNavigation(navOptions);
                             button.setText("Stop Navigation");
                             isNavigating = true;
                             tts.speak("Starting navigation", TextToSpeech.QUEUE_FLUSH, null);
                         } else {
+                            // Stop navigation if currently running
                             navigationView.stopNavigation();
+                            getRoute(origin, destinationPoint);
                             button.setText("Start Navigation");
                             isNavigating = false;
                         }
                     }
                 });
 
-                // Speech regocnition button
+                // Speech recognition button, when pressed will launch activity and wait for result
                 fab = findViewById(R.id.fab);
                 fab.setOnClickListener(new View.OnClickListener() {
                     @Override
@@ -309,12 +287,13 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
         loadedMapStyle.addLayer(destinationSymbolLayer);
     }
 
-    // Used for clicking a point to set a destination for navigation
+    // Used for clicking a point to set a destination for navigation, useful for demo
     @SuppressWarnings({"MissingPermission"})
     @Override
     public boolean onMapClick(@NonNull LatLng point) {
+
         // Convert LatLng coordinates to screen pixel and only query the rendered features.
-        Point destinationPoint = Point.fromLngLat(point.getLongitude(), point.getLatitude());
+        destinationPoint = Point.fromLngLat(point.getLongitude(), point.getLatitude());
         Point originPoint = Point.fromLngLat(locationComponent.getLastKnownLocation().getLongitude(),
                 locationComponent.getLastKnownLocation().getLatitude());
 
@@ -325,13 +304,10 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
         getRoute(originPoint, destinationPoint);
         button.setEnabled(true);
         button.setBackgroundResource(R.color.mapboxBlue);
-
         return true;
-
     }
 
-
-    // Callback for the activity run
+    // Callback for the activity run to process audio request and act accordingly
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
@@ -344,6 +320,7 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                     ArrayList<String> text = data.getStringArrayListExtra(RecognizerIntent.EXTRA_RESULTS);
                     if (text.size() > 0) {
                         try {
+                            // Activate start and stop button based off voice command
                             button = findViewById(R.id.startButton);
                             if (text.get(0).equalsIgnoreCase("Start")) {
                                 if (!isNavigating) {
@@ -369,13 +346,13 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                 }
                 break;
             }
-
         }
     }
 
     // Use geocoding to turn text into location points for navigation, if then set navigation route accordingly
     @SuppressWarnings({"MissingPermission"})
     private void searchForEndpointCoordinates(final String endpoint) throws ServicesException {
+
         // Get Coordinates For Endpoint
         MapboxGeocoding mapboxGeocoding = MapboxGeocoding.builder()
                 .accessToken(getString(R.string.access_token))
@@ -385,14 +362,13 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
         mapboxGeocoding.enqueueCall(new Callback<GeocodingResponse>() {
             @Override
             public void onResponse(Call<GeocodingResponse> call, Response<GeocodingResponse> response) {
-
                 List<CarmenFeature> results = response.body().features();
                 CarmenFeature mainResult = results.get(0);
                 if (results.size() > 0) {
 
                     try {
                         LatLng destinationLatLang = new LatLng(mainResult.center().latitude(), mainResult.center().longitude());
-                        Point destinationPoint = Point.fromLngLat(destinationLatLang.getLongitude(), destinationLatLang.getLatitude());
+                        destinationPoint = Point.fromLngLat(destinationLatLang.getLongitude(), destinationLatLang.getLatitude());
                         Point originPoint = Point.fromLngLat(locationComponent.getLastKnownLocation().getLongitude(),
                                 locationComponent.getLastKnownLocation().getLatitude());
                         GeoJsonSource source = mapboxMap.getStyle().getSourceAs("destination-source-id");
@@ -408,12 +384,13 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                         Toast.makeText(Navigation.this, "Error While Searching For Directions", Toast.LENGTH_SHORT).show();
                     }
                     // Log the first results Point.
-
                 } else {
+                    // Notify user endpoint not found if unable to pinpoint
                     tts.speak("Could not find the location: " + endpoint, TextToSpeech.QUEUE_FLUSH, null);
                 }
             }
 
+            // handle geocoding failures
             @Override
             public void onFailure(Call<GeocodingResponse> call, Throwable throwable) {
                 Toast.makeText(getApplicationContext(),
@@ -444,7 +421,6 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                             return;
                         } else {
                             currentRoute = response.body().routes().get(0);
-                            routeReal = routeAttempt;
                             MapboxGeocoding reverseGeocode = MapboxGeocoding.builder()
                                     .accessToken(getString(R.string.access_token))
                                     .query(destination)
@@ -473,7 +449,7 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                                 }
                             });
 
-                            // Draw the route on the map
+                            // Draw the route on the map and remove any old routes
                             if (navigationMapRoute != null) {
                                 navigationMapRoute.removeRoute();
                             } else {
@@ -490,7 +466,7 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                 });
     }
 
-    // Checks if location permissions exist and enables it
+    // Checks if location permissions exist and enables it by the users choice
     @SuppressWarnings({"MissingPermission"})
     private void enableLocationComponent(@NonNull Style loadedMapStyle) {
         // Check if permissions are enabled and if not request
@@ -513,10 +489,15 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
         permissionsManager.onRequestPermissionsResult(requestCode, permissions, grantResults);
     }
 
+    // Every time a users progress is updated in navigation, provide the user location and their progress along route
     @Override
     @SuppressWarnings({"MissingPermission"})
     public void onProgressChange(Location location, RouteProgress routeProgress) {
         try {
+            // set a global var with the current steps progress
+            progLen = (float)(routeProgress.currentLegProgress().currentStepProgress().distanceRemaining() / 0.3048);
+            // update the current origin point for successive starts and stops
+            origin = Point.fromLngLat(location.getLongitude(), location.getLatitude());
             Log.d("Real progress", Double.toString(routeProgress.currentLegProgress().currentStepProgress().distanceRemaining() / 0.3048));
             Log.d("Real progress Instr", routeProgress.bannerInstruction().getPrimary().getText());
         } catch (Exception e) {
@@ -525,36 +506,83 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
         locationComponent.forceLocationUpdate(location);
     }
 
+    // Fires when a milestone event has occured and provides the routeprogress, instruction, and specific milestone
     @Override
     @SuppressWarnings({"MissingPermission"})
     public void onMilestoneEvent(RouteProgress routeProgress, String instruction, Milestone milestone) {
-        StepIntersection upcomingIntersection = routeProgress.currentLegProgress().currentStepProgress().upcomingIntersection();
-        if (upcomingIntersection != null) {
-            LatLng destinationLatLang = new LatLng(upcomingIntersection.location().latitude(), upcomingIntersection.location().longitude());
-            Point destinationPoint = Point.fromLngLat(destinationLatLang.getLongitude(), destinationLatLang.getLatitude());
-            GeoJsonSource source = mapboxMap.getStyle().getSourceAs("destination-source-id");
-            LatLng originPoint = new LatLng(locationComponent.getLastKnownLocation().getLongitude(),
-                    locationComponent.getLastKnownLocation().getLatitude());
-        }
+        // log the custom milestone
         if (milestone.getIdentifier() == 50) {
             Log.d("Milestone Event", "50");
         }
+        try {
+            // set global var on milestones also
+            progLen = (float)(routeProgress.currentLegProgress().currentStepProgress().distanceRemaining() / 0.3048);
+        } catch (Exception e) {
+
+        }
     }
 
+    // Fires before a voice announcement is about to be made with the announcement
     @Override
     public SpeechAnnouncement willVoice(SpeechAnnouncement announcement) {
+        String progInst = announcement.announcement();
+        // used for if in simulation mode (demo) or regular mode (full application)
+        float simulateUse;
+        if (simulateRoute) {
+            simulateUse = .6f;
+        }
+        else {
+            simulateUse = average_step_length;
+        }
+
+        // Convert distance to an amount of steps based on step length
+        float stepsTillDirection = .3048f * (progLen / simulateUse);
+
+        // Format into new instruction specifying the steps and rebuild announcment
+        String intSteps = Integer.toString((int)(stepsTillDirection));
+        String formated = "In " + intSteps.concat("steps, ".concat(progInst));
+        String newSSML = "<speak><amazon:effect name=\"drc\"><prosody rate=\"1.08\">" + formated + "</prosody></amazon:effect></speak>";
+        SpeechAnnouncement newAnnounce = announcement.toBuilder()
+                .announcement(formated)
+                .ssmlAnnouncement(newSSML)
+                .voiceInstructionMilestone(null)
+                .build();
+
+        // Only return new announcement if it is a close one
+        if (stepsTillDirection < 50) {
+            return newAnnounce;
+        }
+        // otherwise return the old announcement
         return announcement;
     }
 
+    // Occurs before the instructions banner will be updated, only needed for demo purpose
     @Override
     public BannerInstructions willDisplay(BannerInstructions instructions) {
         return instructions;
     }
 
+    // when navigation is ready to run, return if it is running
     @Override
     public void onNavigationReady(boolean isRunning) {
 
     }
+
+    // Methods handling navigation lifecycle
+    @Override
+    public void onCancelNavigation() {
+
+    }
+    @Override
+    public void onNavigationFinished() {
+
+    }
+    @Override
+    public void onNavigationRunning() {
+
+    }
+
+
 
     // Notifies user to enable location permission
     @Override
@@ -562,6 +590,7 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
         Toast.makeText(this, R.string.user_location_permission_explanation, Toast.LENGTH_LONG).show();
     }
 
+    // notifies when a permission is granted or denied
     @Override
     public void onPermissionResult(boolean granted) {
         if (granted) {
@@ -572,6 +601,48 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
         }
     }
 
+    // get the mean of step length
+    private float getMean(ArrayList<Float> vals) {
+        int size = vals.size();
+        float sum = 0f;
+        for (Float val : vals) sum += val;
+        return sum / (float) size;
+    }
+
+    // get variance of step length
+    private float getVariance(ArrayList<Float> vals) {
+        int size = vals.size();
+        float mean = getMean(vals);
+        float var = 0f;
+        for (float val : vals) {
+            float diff = val - mean;
+            var += diff * diff;
+        }
+        var = var / (size - 1);
+        return var;
+    }
+
+    // get the pure step length
+    private void getStepLength() {
+        float newTime = SystemClock.elapsedRealtime();
+        float time = newTime - last_step_time;
+        float freq = 1f / time;
+        float var = getVariance(accels);
+        float length = coef[0] * height * freq +
+                coef[1] * height * var +
+                coef[2] * height +
+                coef[3];
+        steps.add(length);
+        if (steps.size() > 3) steps.remove(0);
+        average_step_length = getMean(steps);
+        last_step_time = newTime;
+    }
+
+    // Fires if accuracy of sensors changes
+    @Override
+    public void onAccuracyChanged(Sensor sensor, int accuracy) {
+
+    }
     @Override
     protected void onStart() {
         super.onStart();
@@ -612,79 +683,5 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
     public void onLowMemory() {
         super.onLowMemory();
         mapView.onLowMemory();
-    }
-
-        //step length functions
-    private float getMean(ArrayList<Float> vals) {
-        int size = vals.size();
-        float sum = 0f;
-        for (Float val : vals) sum += val;
-        return sum / (float) size;
-    }
-
-    private float getVariance(ArrayList<Float> vals) {
-        int size = vals.size();
-        float mean = getMean(vals);
-        float var = 0f;
-        for (float val : vals) {
-            float diff = val - mean;
-            var += diff * diff;
-        }
-        var = var / (size - 1);
-        return var;
-    }
-
-    private void getStepLength() {
-        float newTime = SystemClock.elapsedRealtime();
-        float time = newTime - last_step_time;
-        float freq = 1f / time;
-        float var = getVariance(accels);
-        float length = coef[0] * height * freq +
-                coef[1] * height * var +
-                coef[2] * height +
-                coef[3];
-        steps.add(length);
-        if (steps.size() > 3) steps.remove(0);
-        average_step_length = getMean(steps);
-        last_step_time = newTime;
-    }
-
-    public String sendOutputText(float upcomingDist, String command) {
-        if (upcomingDist >= 30f) Log.w("OUTPUT STRING", "INCOMING FLOAT TOO BIG");
-        float stepsToTarget = upcomingDist / average_step_length;
-        if (stepsToTarget < 1) stepsToTarget = 1;
-        int tens = (int) stepsToTarget / 10;
-        int ones = (int) stepsToTarget % 10;
-        String tensPlace = null;
-        String onesPlace = null;
-        if (tens == 1) {
-            onesPlace = teenStrings[ones];
-        } else if (tens > 1) {
-            tensPlace = tensStrings[tens];
-        }
-        onesPlace = onesStrings[ones];
-
-        String output = "In ";
-        if (!tensPlace.equals(null)) {
-            output += tensPlace + " ";
-        }
-        if (!onesPlace.equals(null)) {
-            output += onesPlace + " ";
-        }
-
-        output += "steps";
-
-        if (command.equals(null)) {
-            output = "Object " + output;
-        } else {
-            output += ", " + command;
-        }
-
-        return output;
-    }
-
-    @Override
-    public void onAccuracyChanged(Sensor sensor, int accuracy) {
-
     }
 }

@@ -7,9 +7,7 @@ import android.speech.tts.TextToSpeech;
 import android.support.design.widget.FloatingActionButton;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
-import android.util.Log;
 import android.view.View;
-import android.widget.Button;
 import android.widget.Toast;
 
 import com.mapbox.core.exceptions.ServicesException;
@@ -21,8 +19,8 @@ public class MainActivity extends AppCompatActivity {
 
     private TextToSpeech tts;
     private FloatingActionButton fab;
-
     protected static final int RESULT_SPEECH = 1;
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
@@ -35,6 +33,8 @@ public class MainActivity extends AppCompatActivity {
                 }
             }
         });
+        tts.setPitch(.8f);
+        tts.setSpeechRate(.9f);
         fab = findViewById(R.id.fab);
         fab.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -68,15 +68,15 @@ public class MainActivity extends AppCompatActivity {
                     if (text.size() > 0) {
                         try {
 
-                            if (text.get(0).equalsIgnoreCase("Start Navigation")) {
+                            if (text.get(0).equalsIgnoreCase("Navigation Demo")) {
                                 startNavigation(null);
-                                tts.speak("Starting Navigation Mode",TextToSpeech.QUEUE_FLUSH, null);
+                                tts.speak("Starting Navigation Demo",TextToSpeech.QUEUE_FLUSH, null);
                             }
-                            else if (text.get(0).equalsIgnoreCase("Start Detection")) {
+                            else if (text.get(0).equalsIgnoreCase("Detection Demo")) {
                                 startDetection(null);
-                                tts.speak("Starting Detection Mode",TextToSpeech.QUEUE_FLUSH, null);
+                                tts.speak("Starting Detection Demo",TextToSpeech.QUEUE_FLUSH, null);
                             }
-                            else if (text.get(0).equalsIgnoreCase("Start Full")) {
+                            else if (text.get(0).equalsIgnoreCase("Full Mode")) {
                                 startNavigationAndDetection(null);
                                 tts.speak("Starting Full Mode",TextToSpeech.QUEUE_FLUSH, null);
                             }

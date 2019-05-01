@@ -4,7 +4,7 @@ android {
     compileSdkVersion 28
     defaultConfig {
         applicationId "com.example.narwalk"
-        minSdkVersion 15
+        minSdkVersion 23
         targetSdkVersion 28
         versionCode 1
         versionName "1.0"
@@ -24,6 +24,7 @@ android {
 repositories {
     mavenCentral()
     maven { url 'https://mapbox.bintray.com/mapbox' }
+    maven { url 'https://jitpack.io' }
 }
 dependencies {
     implementation fileTree(dir: 'libs', include: ['*.jar'])
@@ -36,4 +37,7 @@ dependencies {
     implementation 'com.mapbox.mapboxsdk:mapbox-android-sdk:7.3.0'
     implementation 'com.mapbox.mapboxsdk:mapbox-android-navigation-ui:0.33.2'
     implementation "com.google.android.gms:play-services-location:15.0.1"
+}
+dependencies {
+    implementation 'com.github.PhilJay:MPAndroidChart:v3.1.0-alpha'
 }
