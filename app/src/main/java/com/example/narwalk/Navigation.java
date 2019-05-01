@@ -115,6 +115,8 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
     Handler sensorHandler;
     private SensorManager sensorManager;
     private float progLen = 0f;
+    private boolean isPaused = false;
+    private boolean isEnded = false;
 
     // boolean to simulate the navigation
     private boolean simulateRoute = true;
@@ -221,7 +223,6 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                                             )
                                     )
                                     .build());
-
                             // Add options for navigation with change listeners
                             boolean simulateRoute = true;
                             NavigationViewOptions navOptions = NavigationViewOptions.builder()
@@ -239,10 +240,13 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                             navigationView.startNavigation(navOptions);
                             button.setText("Stop Navigation");
                             isNavigating = true;
+                            isEnded = false;
                             tts.speak("Starting navigation", TextToSpeech.QUEUE_FLUSH, null);
                         } else {
                             // Stop navigation if currently running
                             navigationView.stopNavigation();
+                            isPaused = true;
+                            isEnded = true;
                             getRoute(origin, destinationPoint);
                             button.setText("Start Navigation");
                             isNavigating = false;
@@ -301,6 +305,7 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
         if (source != null) {
             source.setGeoJson(Feature.fromGeometry(destinationPoint));
         }
+        isPaused = false;
         getRoute(originPoint, destinationPoint);
         button.setEnabled(true);
         button.setBackgroundResource(R.color.mapboxBlue);
@@ -375,6 +380,7 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                         if (source != null) {
                             source.setGeoJson(Feature.fromGeometry(destinationPoint));
                         }
+                        isPaused = false;
                         getRoute(originPoint, destinationPoint);
                         button.setEnabled(true);
                         button.setBackgroundResource(R.color.mapboxBlue);
@@ -416,7 +422,7 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                         if (response.body() == null) {
                             Log.e(TAG, "No routes found, make sure you set the right user and access token.");
                             return;
-                        } else if (response.body().routes().size() < 1) {
+                        } else if (response.body().routes().size() < 1 && !isPaused) {
                             tts.speak("No routes found to: " + routeAttempt, TextToSpeech.QUEUE_FLUSH, null);
                             return;
                         } else {
@@ -432,7 +438,7 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
 
                                     List<CarmenFeature> results = response.body().features();
 
-                                    if (results.size() > 0) {
+                                    if (results.size() > 0 && !isPaused) {
                                         // Log the first results Point.
                                         tts.speak("Route set to: " + results.get(0).placeName(), TextToSpeech.QUEUE_FLUSH, null);
 
@@ -548,12 +554,15 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
                 .voiceInstructionMilestone(null)
                 .build();
 
-        // Only return new announcement if it is a close one
-        if (stepsTillDirection < 50) {
-            return newAnnounce;
+        if (!isEnded) {
+            // Only return new announcement if it is a close one
+            if (stepsTillDirection < 50) {
+                return newAnnounce;
+            }
+            // otherwise return the old announcement
+            return announcement;
         }
-        // otherwise return the old announcement
-        return announcement;
+        return null;
     }
 
     // Occurs before the instructions banner will be updated, only needed for demo purpose
@@ -647,41 +656,49 @@ public class Navigation extends AppCompatActivity implements MapboxMap.OnMapClic
     protected void onStart() {
         super.onStart();
         mapView.onStart();
+        navigationView.onStart();
     }
 
     @Override
     protected void onResume() {
         super.onResume();
         mapView.onResume();
+        navigationView.onResume();
     }
 
     @Override
     protected void onPause() {
         super.onPause();
         mapView.onPause();
+        navigationView.onPause();
     }
 
     @Override
     protected void onStop() {
         super.onStop();
         mapView.onStop();
+        navigationView.onStop();
     }
 
     @Override
     protected void onSaveInstanceState(Bundle outState) {
         super.onSaveInstanceState(outState);
         mapView.onSaveInstanceState(outState);
+        navigationView.onSaveInstanceState(outState);
     }
 
     @Override
     protected void onDestroy() {
         super.onDestroy();
         mapView.onDestroy();
+        navigationView.onDestroy();
+
     }
 
     @Override
     public void onLowMemory() {
         super.onLowMemory();
         mapView.onLowMemory();
+        navigationView.onLowMemory();
     }
 }
