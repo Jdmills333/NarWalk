@@ -28,10 +28,12 @@ import com.mapbox.core.exceptions.ServicesException;
 
 import java.io.DataOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
 import java.net.Socket;
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -47,7 +49,7 @@ public class Detection extends AppCompatActivity {
     private static final double DURATION_TO_SEND = 0.02; // seconds
     private static final double DURATION=0.005;
     private static final int TOTAL_SAMPLES = 1794;
-    private static final String SERVER = "10.140.143.49";
+    private static final String SERVER = "10.141.163.195";
     private static final String SERVER_HOME ="192.168.1.142";
     private static final int PORT = 9800;
     private static final int CHANNEL = AudioFormat.CHANNEL_IN_STEREO;
@@ -221,10 +223,12 @@ public class Detection extends AppCompatActivity {
                     boolean isNonZero = false;
                     boolean isSocketInitiated = false;
                     int counter = 0;
+                    InputStream in = null;
                     Log.i(TAG, "IN NEW THREAD");
                     try {
                         initSocket(SERVER);
                         isSocketInitiated = true;
+                        in = socket.getInputStream();
                     }
                     catch (IOException e) {
                         Log.i(TAG, e.getMessage());
@@ -246,6 +250,12 @@ public class Detection extends AppCompatActivity {
                                 writeToSocket(buffer1[i]);
                             }
                         }
+                        while (in.available() <= 0);
+                        byte[] bytes = new byte[in.available()];
+                        in.read(bytes);
+                        double data = ByteBuffer.wrap(bytes).getDouble();
+                        Log.w("SOCKET_SPROCKET", "THIS THING: " + Double.toString(data));
+                        tts.speak("Object " + Double.toString(data).substring(0, 4) + " meters away", TextToSpeech.QUEUE_FLUSH, null);
                     }
                     catch (IOException e) {
                         Log.i(TAG, e.getMessage());
@@ -264,6 +274,25 @@ public class Detection extends AppCompatActivity {
 
         // start the thread
         streamThread.start();
+    }
+
+    private void writeBytes(short[] shorts) throws IOException {
+        DataOutputStream dataOutputStream = new DataOutputStream(socket.getOutputStream());
+        int bytes_to_send = shorts.length * 2;
+        int bytes_sent = 0;
+        while (bytes_to_send > 0) {
+            byte[] bytes = new byte[Math.min(512, bytes_to_send)];
+            Log.w("SENDING BYTES", "BYTES TO SEND: " + Integer.toString(bytes_to_send));
+            Log.w("SENDING BYTES", "BYTES SENT: " + Integer.toString(bytes_sent));
+            Log.w("SENDING BYTES", "BUFFER LENGTH: " + Integer.toString(bytes.length));
+            for (int i = bytes_sent / 2; i < ((bytes_sent + bytes.length) / 2); ++i) {
+                bytes[2*(i - bytes_sent / 2)] = (byte) (shorts[i] & 0xff);
+                bytes[2*(i - bytes_sent / 2) + 1] = (byte) (shorts[i] >> 8 & 0xff);
+            }
+            dataOutputStream.write(bytes, 0, bytes.length);
+            bytes_to_send -= bytes.length;
+            bytes_sent += bytes.length;
+        }
     }
 
     private void initSocket(String ip) throws IOException {
